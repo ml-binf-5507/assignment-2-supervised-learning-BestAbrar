@@ -38,7 +38,26 @@ def train_elasticnet_grid(X_train, y_train, l1_ratios, alphas):
     #   - Calculate R² score on training data
     #   - Store results
     # - Return DataFrame with results
-    pass
+    results = {
+        "l1_ratio":[],
+        "alpha":[],
+        "r2_score":[],
+        "model":[]
+        }
+    for ratio in l1_ratios:
+        for a in alphas:
+            elastic_reg = ElasticNet(alpha=a, l1_ratio=ratio, max_iter=5000)
+            elastic_reg.fit(X_train, y_train)
+            # Predict on the training set
+            y_pred_elastic = elastic_reg.predict(X_train)
+            # Evaluate the model
+            r2_elastic = r2_score(y_train, y_pred_elastic)
+            results["l1_ratio"].append(ratio)
+            results["alpha"].append(a)
+            results["r2_score"].append(r2_elastic)
+            results["model"].append(elastic_reg)
+    df = pd.DataFrame(results)
+    return df
 
 
 def create_r2_heatmap(results_df, l1_ratios, alphas, output_path=None):
@@ -68,7 +87,9 @@ def create_r2_heatmap(results_df, l1_ratios, alphas, output_path=None):
     # - Add colorbar
     # - Save to output_path if provided
     # - Return figure object
-    pass
+    df_pivot = results_df.pivot(index="l1_ratio", columns='alpha', values='r2_score')
+    sns.heatmap(data = df_pivot, annot=True, cmap=plt.cm.coolwarm)
+    return sns
 
 
 def get_best_elasticnet_model(X_train, y_train, X_test, y_test, 
@@ -111,4 +132,16 @@ def get_best_elasticnet_model(X_train, y_train, X_test, y_test,
     # - Train models using train_elasticnet_grid
     # - Select model with highest test R² (not training R²)
     # - Return dictionary with best model and parameters
-    pass
+
+    df = train_elasticnet_grid(X_train,y_train,l1_ratios,alphas)
+    max_score_index = df['r2_score'].idxmax()
+    y_pred_elastic = df.loc[max_score_index]["model"].predict(X_train)
+    r2_elastic = r2_score(y_train, y_pred_elastic)
+    results = {'model': df.loc[max_score_index]["model"],
+               'best_l1_ratio': df.loc[max_score_index]["l1_ratio"],
+               'best_alpha': df.loc[max_score_index]["alpha"],
+               'train_r2':df.loc[max_score_index]["r2_score"],
+               'test_r2':r2_score(y_train, y_pred_elastic),
+               'results_df':df
+    }
+    return results
